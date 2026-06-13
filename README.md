@@ -28,7 +28,7 @@ from outside the uploaded content.
 | AI / LLM  | Groq API (llama-3.3-70b-versatile)      |
 | Retrieval | TF-IDF (scikit-learn)                   |
 | OCR       | EasyOCR + PyMuPDF (for scanned PDFs)   |
-| Frontend  | HTML, CSS, JavaScript                   |
+| Frontend  | HTML, CSS, JS                   |
 
 ---
 
