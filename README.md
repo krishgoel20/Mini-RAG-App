@@ -82,7 +82,7 @@ mini-rag-app/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/mini-rag-app.git
+git clone https://github.com/krishgoel20/mini-rag-app.git
 cd mini-rag-app
 ```
 
@@ -91,8 +91,7 @@ cd mini-rag-app
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate       # Windows
-source venv/bin/activate    # Mac/Linux
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
