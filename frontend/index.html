@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG-App · Document Intelligence</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">
+      <span class="logo-icon">⬡</span>
+      <span class="logo-text">RAG<em>App</em></span>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot"></span>
+      <span id="statusLabel">No document loaded</span>
+    </div>
+    <button class="btn-ghost" id="themeBtn" title="Toggle light/dark mode">
+      ☀️
+    </button>
+    <button class="btn-ghost" id="resetBtn" title="Clear document and start over">
+      ✕ Reset
+    </button>
+  </header>
+
+  <main>
+
+    <section class="panel panel-doc" id="docPanel">
+      <div class="panel-header">
+        <h2>01 — Document</h2>
+        <p class="panel-sub">Paste text or upload a <code>.txt</code>, <code>.pdf</code>, or <code>.docx</code> file</p>
+      </div>
+
+      <div class="doc-library hidden" id="docLibrary">
+        <div class="doc-library-header">
+          <span class="doc-library-label">Loaded Documents</span>
+        </div>
+        <div class="doc-library-list" id="docLibraryList"></div>
+      </div>
+
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".txt, .pdf, .docx" hidden />
+        <div class="drop-hint" id="dropHint">
+          <div class="drop-icon">⇡</div>
+          <p>Drop a <code>.txt</code> , <code>.pdf</code>, or <code>.docx</code> file here, or</p>
+          <button class="btn-outline" id="browseBtn">Browse file</button>
+        </div>
+      </div>
+
+      <div class="divider-or"><span>or paste directly</span></div>
+
+      <textarea id="docTextarea" placeholder="Paste your document text here…" spellcheck="false"></textarea>
+
+      <div class="panel-footer">
+        <span id="charCount" class="meta">0 characters</span>
+        <button class="btn-primary" id="ingestBtn" disabled>
+          <span class="btn-text">Ingest Document</span>
+          <span class="btn-loader hidden"></span>
+        </button>
+      </div>
+
+      <div class="success-banner hidden" id="successBanner">
+        <span class="success-icon">✓</span>
+        <span id="successMsg">Document ingested!</span>
+      </div>
+    </section>
+
+    <section class="panel panel-qa" id="qaPanel">
+      <div class="panel-header">
+        <h2>02 — Ask a Question</h2>
+        <p class="panel-sub">Answers are grounded strictly in your document</p>
+        <button class="btn-download hidden" id="downloadBtn" title="Download chat history">
+          ⬇ Download chat
+        </button>
+      </div>
+
+      <div class="question-row">
+        <input
+          type="text"
+          id="questionInput"
+          placeholder="e.g. What is the main argument of this text?"
+          autocomplete="off"
+          disabled
+        />
+        <button class="btn-mic" id="micBtn" disabled title="Ask by voice">
+          🎤
+        </button>
+        <button class="btn-send" id="askBtn" disabled>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+
+      <div class="suggestions hidden" id="suggestionsContainer">
+        <p class="suggestions-label">Suggested questions:</p>
+        <div class="suggestions-chips" id="suggestionsChips"></div>
+      </div>
+
+      <div class="chat-container" id="chatContainer">
+        <div class="qa-empty" id="qaEmpty">
+          <div class="empty-icon">⬡</div>
+          <p>Ingest a document first, then ask anything about it.</p>
+        </div>
+      </div>
+
+      <div class="thinking hidden" id="thinkingIndicator">
+        <span class="think-dot"></span>
+        <span class="think-dot"></span>
+        <span class="think-dot"></span>
+        <span class="think-label">Retrieving context &amp; generating answer…</span>
+      </div>
+
+      <div class="sources-section hidden" id="sourcesSection">
+        <button class="sources-toggle" id="sourcesToggle">
+          <span>▸</span> View retrieved chunks
+        </button>
+        <div class="sources-list hidden" id="sourcesList"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <section class="rag-explainer">
+    <h3>How it works — RAG Pipeline</h3>
+    <div class="pipeline">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Chunking</div>
+        <div class="step-desc">Document is split into overlapping sentence windows to preserve context at boundaries.</div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Indexing</div>
+        <div class="step-desc">A TF-IDF matrix is built over all chunks, capturing term frequency signals.</div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Retrieval</div>
+        <div class="step-desc">Cosine similarity ranks the top-k chunks most relevant to your question.</div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-title">Generation</div>
+        <div class="step-desc">The retrieved chunks are injected into a strict grounding prompt sent to Gemini.</div>
+      </div>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

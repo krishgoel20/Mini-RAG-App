@@ -1,0 +1,19 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+*.egg-info/
+
+# EasyOCR model cache
+.EasyOCR/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
