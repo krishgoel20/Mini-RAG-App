@@ -123,7 +123,10 @@ Open `frontend/index.html` directly in your browser, or use VS Code Live Server.
 | Multi-format upload | Supports .txt, .pdf, and .docx files |
 | OCR support | Extracts text from scanned/image PDFs using EasyOCR |
 | Drag and drop | Drag files directly into the upload zone |
+| File processing spinner | Contextual loading messages during ingestion (Reading PDF…, Extracting text…) |
 | Multiple documents | Upload and switch between multiple documents |
+| Soft document limit warning | Amber warning shown when 6+ documents are loaded |
+| Reset functionality | Clears all documents, indexes and chat history in one click |
 | Chat history | Full conversation memory with follow-up question support |
 | Query rewriting | Vague follow-ups rewritten into standalone queries before retrieval |
 | Answer highlighting | Most relevant sentences highlighted in retrieved chunks |
