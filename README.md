@@ -75,7 +75,7 @@ mini-rag-app/
 
 ## Setup and Installation
 
-### Prerequisites
+### Pre-requisites
 - Python 3.10+
 - Groq API key (free at https://console.groq.com)
 
