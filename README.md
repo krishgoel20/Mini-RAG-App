@@ -59,7 +59,7 @@ Answer displayed with confidence score and highlighted source chunk
 ## Project Structure
 
 ```
-mini-rag-app/
+Mini-RAG-App/
 ├── backend/
 │   ├── main.py          # FastAPI app, all endpoints, LLM calls
 │   ├── rag_engine.py    # Chunking, TF-IDF index, retrieval, context assembly
