@@ -286,7 +286,14 @@ function appendBubble(role, text, score = null) {
     const wordCount = text.trim().split(/\s+/).length;
     const charCount = text.length;
 
-    const confidence = score !== null ? Math.min(score * 6, 0.95) : 0;
+    // Cosine similarity from embeddings sits roughly in [0, 0.75] for this
+    // app's real queries (near-zero for irrelevant chunks, ~0.7+ for
+    // excellent matches) — quite different from TF-IDF's sparser range.
+    // Linearly rescale that window into a 0-95% display range instead of
+    // the old flat multiplier, which saturated almost any real match to 95%.
+    const MIN_SCORE = 0.05;   // at/below this -> displayed as ~0% (irrelevant)
+    const MAX_SCORE = 0.75;   // at/above this -> displayed as 95% (excellent match)
+    const confidence = score !== null ? Math.max(0, Math.min((score - MIN_SCORE) / (MAX_SCORE - MIN_SCORE), 0.95)) : 0;
     const pct = Math.round(confidence * 100);
     const confColor = pct >= 60 ? "var(--teal)" : pct >= 30 ? "var(--amber)" : "var(--red)";
     const confLabel = pct >= 60 ? "High" : pct >= 30 ? "Medium" : "Low";

@@ -6,7 +6,7 @@ from groq import Groq
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from rag_engine import TFIDFIndex, chunk_text, assemble_context
+from rag_engine import EmbeddingIndex, chunk_text, assemble_context
 
 load_dotenv(dotenv_path="../.env")
 
@@ -22,7 +22,7 @@ app.add_middleware(
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
 # Multiple document support
-_documents: dict = {}          # {doc_id: {"name": str, "index": TFIDFIndex, "preview": str}}
+_documents: dict = {}             # {doc_id: {"name": str, "index": EmbeddingIndex, "preview": str}}
 _active_doc_id: str | None = None
 
 class UploadRequest(BaseModel):
@@ -72,7 +72,7 @@ def _call_llm(question: str, context: str, history: list[dict] = []) -> str:
     messages.append({"role": "user", "content": prompt})
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=messages
     )
     return response.choices[0].message.content
@@ -83,16 +83,21 @@ def _rewrite_query(question: str, history: list[dict]) -> str:
 
     # Only rewrite if the question is clearly a follow-up
     # Self-contained questions don't need rewriting
-    follow_up_signals = [
+    single_word_signals = {
         "it", "that", "this", "first", "second", "third",
         "more", "previous", "last", "above", "same", "one",
-        "tell me", "explain", "elaborate", "what about"
-    ]
-    words = question.lower().split()
-    is_follow_up = (
-        len(words) <= 8 and
-        any(signal in question.lower() for signal in follow_up_signals)
-    )
+    }
+    phrase_signals = ["tell me", "explain", "elaborate", "what about"]
+
+    question_lower = question.lower()
+    words = question_lower.split()
+    # Whole-word match for single-word signals (avoids false positives like
+    # "it" inside "capital" or "recognition"); substring match is fine for
+    # multi-word phrases since they're specific enough not to collide.
+    stripped_words = [w.strip(".,!?;:'\"") for w in words]
+    has_word_signal = any(w in single_word_signals for w in stripped_words)
+    has_phrase_signal = any(phrase in question_lower for phrase in phrase_signals)
+    is_follow_up = len(words) <= 8 and (has_word_signal or has_phrase_signal)
 
     if not is_follow_up:
         return question  # Self-contained — use as-is
@@ -114,7 +119,7 @@ Follow-up question: {question}
 Standalone query:"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": rewrite_prompt}],
         max_tokens=100
     )
@@ -184,7 +189,7 @@ def upload_document(req: UploadRequest):
         raise HTTPException(status_code=400, detail="Could not extract any text chunks.")
 
     doc_id = f"doc_{len(_documents) + 1}"
-    index = TFIDFIndex()
+    index = EmbeddingIndex()
     index.build(chunks)
 
     _documents[doc_id] = {
@@ -217,7 +222,7 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Could not extract any text chunks.")
 
     doc_id = f"doc_{len(_documents) + 1}"
-    index = TFIDFIndex()
+    index = EmbeddingIndex()
     index.build(chunks)
 
     _documents[doc_id] = {
@@ -251,28 +256,30 @@ def query_document(req: QueryRequest):
     # Rewrite follow-up questions into standalone queries
     rewritten = _rewrite_query(question, req.history)
 
-    # Get TF-IDF scores for display
-    tfidf_results = index.search(rewritten, top_k=1)
+    # Get top-matching chunk for display
+    retrieved_results = index.search(rewritten, top_k=1)
 
     # For LLM context: pass all chunks for small documents
     if len(index.chunks) <= 5:
         context_chunks = [(chunk, 1.0) for chunk in index.chunks]
     else:
-        context_chunks = tfidf_results if tfidf_results else [(chunk, 0.0) for chunk in index.chunks]
+        context_chunks = retrieved_results if retrieved_results else [(chunk, 0.0) for chunk in index.chunks]
 
     context = assemble_context(context_chunks)
     answer = _call_llm(rewritten, context, req.history)
 
-    # For display: show only top 1 TF-IDF matching chunk
+    # For display: show only the top matching chunk
     display_sources = [
-        {"rank": 1, "score": round(tfidf_results[0][1], 3), "text": tfidf_results[0][0]}
-    ] if tfidf_results else []
+        {"rank": 1, "score": round(retrieved_results[0][1], 3), "text": retrieved_results[0][0]}
+    ] if retrieved_results else []
 
     return QueryResponse(answer=answer, sources=display_sources)
 
 @app.post("/reset")
 def reset():
     global _active_doc_id
+    for doc in _documents.values():
+        doc["index"].close()
     _documents.clear()
     _active_doc_id = None
     return {"status": "reset"}
@@ -302,6 +309,7 @@ def delete_document(doc_id: str):
     global _active_doc_id
     if doc_id not in _documents:
         raise HTTPException(status_code=404, detail="Document not found.")
+    _documents[doc_id]["index"].close()
     del _documents[doc_id]
     if _active_doc_id == doc_id:
         _active_doc_id = next(iter(_documents), None)
@@ -328,7 +336,7 @@ Document excerpt:
 3 questions:"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=150,
         temperature=0.9

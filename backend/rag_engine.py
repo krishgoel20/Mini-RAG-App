@@ -1,8 +1,19 @@
+import os
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
 import re
+import uuid
 from typing import List, Tuple
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
+import chromadb
+from sentence_transformers import SentenceTransformer
+
+# Loaded once at import time and shared by every document's index —
+# reloading a transformer model per document would be wasteful.
+_embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# Single in-memory (ephemeral) Chroma client shared across documents.
+# Each EmbeddingIndex gets its own uniquely named collection so that
+# documents never share or leak chunks into each other's search space.
+_chroma_client = chromadb.Client()
 
 def _split_into_sentences(text: str) -> List[str]:
     text = text.replace("\r\n","\n").replace("\r","\n")
@@ -37,31 +48,52 @@ def chunk_text(
 
     return chunks
 
-class TFIDFIndex:
+class EmbeddingIndex:
+    """
+    Semantic retrieval index backed by sentence-transformer embeddings
+    and a ChromaDB collection. Drop-in replacement for the old
+    TFIDFIndex: same build()/search()/self.chunks interface, so
+    main.py needs no changes beyond the import.
+    """
+
     def __init__(self) -> None:
         self.chunks: List[str] = []
-        self._vectorizer: TfidfVectorizer | None = None
-        self._matrix = None
+        # Unique collection name per document so indexes never collide,
+        # even if several documents are open at once. Configure the
+        # space as cosine so distances map cleanly to a similarity score.
+        self._collection = _chroma_client.create_collection(
+            name=f"doc_{uuid.uuid4().hex}",
+            metadata={"hnsw:space": "cosine"},
+        )
 
-    def build(self,chunks: List[str]) -> None:
+    def build(self, chunks: List[str]) -> None:
         if not chunks:
             raise ValueError("Cannot build index from an empty chunk list.")
         self.chunks = chunks
-        self._vectorizer = TfidfVectorizer(
-            stop_words="english",
-            ngram_range=(1,2),
+        embeddings = _embedding_model.encode(chunks).tolist()
+        self._collection.add(
+            ids=[str(i) for i in range(len(chunks))],
+            embeddings=embeddings,
+            documents=chunks,
         )
-        self._matrix = self._vectorizer.fit_transform(chunks)
 
-    def search(self,query: str,top_k: int = 3) -> List[Tuple[str,float]]:
-        if self._vectorizer is None or self._matrix is None:
+    def search(self, query: str, top_k: int = 3) -> List[Tuple[str, float]]:
+        if not self.chunks:
             raise RuntimeError("Index not built yet. Call build() first.")
-        q_vec = self._vectorizer.transform([query])
-        scores = cosine_similarity(q_vec,self._matrix).flatten()
-        ranked_indices = np.argsort(scores)[::-1][:top_k]
-        results = [(self.chunks[i],float(scores[i])) for i in ranked_indices]
-        results = [(chunk,score) for chunk,score in results if score > 0.0]
-        return results
+        query_embedding = _embedding_model.encode([query]).tolist()
+        results = self._collection.query(
+            query_embeddings=query_embedding,
+            n_results=min(top_k, len(self.chunks)),
+        )
+        documents = results["documents"][0]
+        distances = results["distances"][0]
+        # Cosine space -> distance = 1 - cosine_similarity, so convert back.
+        scored = [(doc, 1.0 - dist) for doc, dist in zip(documents, distances)]
+        return [(chunk, score) for chunk, score in scored if score > 0.0]
+
+    def close(self) -> None:
+        """Drop this document's collection. Call when the document is deleted or reset."""
+        _chroma_client.delete_collection(name=self._collection.name)
 
 def assemble_context(retrieved: List[Tuple[str,float]]) -> str:
     if not retrieved:
