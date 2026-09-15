@@ -1,4 +1,4 @@
-# Mini-RAG App
+# InsightRAG 📄🔍
 
 A full-stack AI-powered web application that lets you upload documents and ask questions about them in plain English, receiving answers grounded strictly in the uploaded content using Retrieval-Augmented Generation (RAG).
 
