@@ -153,12 +153,12 @@ What is the educational background?
 
 ## Key Concepts Demonstrated
 
-- **RAG fundamentals** — chunking with overlap, sentence-transformer embeddings, ChromaDB vector storage, cosine-similarity retrieval, context assembly, and grounded generation
-- **Prompt engineering** — strict grounding system prompt prevents hallucination; query rewriting handles conversational follow-ups
-- **Backend–frontend integration** — FastAPI backend with Pydantic validation, CORS middleware, and vanilla JS frontend using the Fetch API
-- **OCR pipeline** — PyMuPDF for digital PDFs with EasyOCR fallback for scanned documents
-- **Multi-document management** — each document gets its own ChromaDB collection in memory; documents can be switched or deleted independently, with collections cleaned up on delete/reset
-- **Async file handling** — large file uploads processed asynchronously to prevent server blocking
+- **RAG fundamentals** — chunking with overlap, sentence-transformer embeddings, ChromaDB vector storage, cosine-similarity retrieval, context assembly, and grounded generation.
+- **Prompt engineering** — strict grounding system prompt prevents hallucination; query rewriting handles conversational follow-ups.
+- **Backend–frontend integration** — FastAPI backend with Pydantic validation, CORS middleware, and vanilla JS frontend using the Fetch API.
+- **OCR pipeline** — PyMuPDF for digital PDFs with EasyOCR fallback for scanned documents.
+- **Multi-document management** — each document gets its own ChromaDB collection in memory; documents can be switched or deleted independently, with collections cleaned up on delete/reset.
+- **Async file handling** — large file uploads processed asynchronously to prevent server blocking.
 
 ---
 
